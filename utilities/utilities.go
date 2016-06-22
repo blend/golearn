@@ -2,7 +2,12 @@
 package utilities
 
 import (
+	"encoding/csv"
+	"errors"
+	"fmt"
+	"os"
 	"sort"
+	"strconv"
 
 	"github.com/gonum/matrix/mat64"
 )
@@ -44,4 +49,32 @@ func FloatsToMatrix(floats []float64) *mat64.Dense {
 func VectorToMatrix(vector *mat64.Vector) *mat64.Dense {
 	vec := vector.RawVector()
 	return mat64.NewDense(1, len(vec.Data), vec.Data)
+}
+
+func SaveMatrixDataToCSV(data *mat64.Dense, labels []string, filename string) error {
+	if len(filename) < 4 || filename[len(filename)-3:] != "csv" {
+		return errors.New(fmt.Sprint("CSV filename required.", filename))
+	}
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return errors.New(fmt.Sprintf("%s could not be created", filename))
+	}
+	writer := csv.NewWriter(f)
+	rawData := data.RawMatrix().Data
+	numCols := data.RawMatrix().Cols
+
+	csvRow := []string{}
+	labelCounter := 0
+	for index, val := range rawData {
+		csvRow = append(csvRow, strconv.FormatFloat(val, 'f', 6, 64))
+		if index%numCols == (numCols - 1) {
+			csvRow = append(csvRow, labels[labelCounter])
+			writer.Write(csvRow)
+			labelCounter += 1
+			csvRow = []string{}
+		}
+	}
+	writer.Flush()
+	return nil
 }

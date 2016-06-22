@@ -32,3 +32,19 @@ func TestTransform(t *testing.T) {
 	newData := []string{"apples grapes", "bananas bananas"}
 	tfidf.Transform(newData, &matrix)
 }
+
+func TestTransformAndSaveData(t *testing.T) {
+	vocab := []string{"apples", "bananas", "oranges"}
+	tfidf := NewTfidfVectorizer(vocab)
+
+	var matrix mat64.Dense
+
+	newData := []string{"apples grapes", "bananas bananas", "oranges"}
+	labels := []string{"fruits", "fruits", "fruits"}
+	saveDir := "result/tfidf_data.csv"
+
+	err := tfidf.FitTransformAndSaveData(newData, labels, &matrix, saveDir)
+	if err != nil {
+		t.Error(err)
+	}
+}

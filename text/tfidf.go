@@ -7,14 +7,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/blendlabs/golearn/utilities"
 	"github.com/gonum/matrix/mat64"
 )
 
 type TfidfVectorizer struct {
-	vocabulary []string
-	vocabCount map[string]int
-	idf        *mat64.Dense
-	size       int
+	Vocabulary []string
+	VocabCount map[string]int
+	IDF        *mat64.Dense
+	Size       int
 }
 
 func NewTfidfVectorizer(vocabulary []string) *TfidfVectorizer {
@@ -37,38 +38,38 @@ func (tfidf *TfidfVectorizer) Fit(data []string) error {
 		return errors.New(fmt.Sprint("Cannot have 0 vocab words"))
 	}
 
-	for _, str := range tfidf.vocabulary {
-		tfidf.vocabCount[str] = 0
+	for _, str := range tfidf.Vocabulary {
+		tfidf.VocabCount[str] = 0
 	}
 
 	for _, textData := range data {
 		for _, str := range strings.Split(textData, " ") {
-			_, present := tfidf.vocabCount[str]
+			_, present := tfidf.VocabCount[str]
 			if present {
-				tfidf.vocabCount[str] += 1
+				tfidf.VocabCount[str] += 1
 			}
 		}
 	}
-	idfArray := make([]float64, tfidf.size)
+	idfArray := make([]float64, tfidf.Size)
 
-	for index, str := range tfidf.vocabulary {
-		idfValue := math.Log(float64(tfidf.size) / float64(tfidf.vocabCount[str]))
+	for index, str := range tfidf.Vocabulary {
+		idfValue := 1 + math.Log(float64(tfidf.Size)/float64(tfidf.VocabCount[str]))
 		idfArray[index] = idfValue
 	}
 
-	tfidf.idf = mat64.NewDense(tfidf.size, 1, idfArray)
+	tfidf.IDF = mat64.NewDense(1, tfidf.Size, idfArray)
 
 	return nil
 }
 
 func (tfidf *TfidfVectorizer) calculateTF(str string) []float64 {
-	tfArray := make([]float64, tfidf.size)
+	tfArray := make([]float64, tfidf.Size)
 	strMap := make(map[string]int)
 	for _, word := range strings.Split(str, " ") {
 		strMap[word] = 1
 	}
 
-	for index, str := range tfidf.vocabulary {
+	for index, str := range tfidf.Vocabulary {
 		_, present := strMap[str]
 		if present {
 			tfArray[index] = 1
@@ -78,11 +79,19 @@ func (tfidf *TfidfVectorizer) calculateTF(str string) []float64 {
 }
 
 func (tfidf *TfidfVectorizer) Transform(data []string, matrix *mat64.Dense) {
-	tfMatrix := mat64.NewDense(len(data), tfidf.size, make([]float64, len(data)*tfidf.size))
+	tfMatrix := mat64.NewDense(len(data), tfidf.Size, make([]float64, len(data)*tfidf.Size))
+	idfMatrix := mat64.NewDense(len(data), tfidf.Size, make([]float64, len(data)*tfidf.Size))
 	for index, str := range data {
 		tfRow := tfidf.calculateTF(str)
 		tfMatrix.SetRow(index, tfRow)
+		idfMatrix.SetRow(index, tfidf.IDF.RawMatrix().Data)
 	}
 
-	matrix.Mul(tfMatrix, tfidf.idf)
+	matrix.MulElem(tfMatrix, idfMatrix)
+}
+
+func (tfidf *TfidfVectorizer) FitTransformAndSaveData(data []string, labels []string, matrix *mat64.Dense, saveDir string) error {
+	tfidf.Fit(data)
+	tfidf.Transform(data, matrix)
+	return utilities.SaveMatrixDataToCSV(matrix, labels, saveDir)
 }
